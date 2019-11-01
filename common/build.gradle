@@ -1,0 +1,126 @@
+plugins {
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.multiplatform'
+    id 'org.jetbrains.kotlin.plugin.serialization'
+}
+
+group = 'tech.michalik.multiplatform.common'
+version = 1.0
+
+android {
+    compileSdkVersion 27
+    defaultConfig {
+        minSdkVersion 15
+    }
+    buildTypes {
+        release {
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+def ktor_version = "1.2.3"
+
+dependencies {
+    // Specify Kotlin/JVM stdlib dependency.
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk7'
+
+    testImplementation 'junit:junit:4.12'
+    testImplementation 'org.jetbrains.kotlin:kotlin-test'
+    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit'
+}
+
+kotlin {
+    targets {
+        fromPreset(presets.android, 'android')
+
+        //build fro real device or emulator
+        def buildForDevice = project.findProperty("device")?.toBoolean() ?: false
+        def iosPreset = (buildForDevice) ? presets.iosArm64 : presets.iosX64
+        fromPreset(iosPreset, 'ios') {
+            binaries {
+                framework {
+                    if (!buildForDevice) {
+                        embedBitcode("disable")
+                    }
+                }
+            }
+        }
+        fromPreset(presets.js, 'js')
+    }
+
+    sourceSets {
+        commonMain {
+            dependencies {
+                implementation 'org.jetbrains.kotlin:kotlin-stdlib-common'
+                implementation "io.ktor:ktor-client-core:$ktor_version"
+                implementation("io.ktor:ktor-client-json:$ktor_version")
+                implementation("io.ktor:ktor-client-serialization:$ktor_version")
+            }
+        }
+        commonTest {
+            dependencies {
+                implementation 'org.jetbrains.kotlin:kotlin-test-common'
+                implementation 'org.jetbrains.kotlin:kotlin-test-annotations-common'
+            }
+        }
+        iosMain {
+            dependencies {
+                implementation "io.ktor:ktor-client-ios:$ktor_version"
+                implementation("io.ktor:ktor-client-serialization-native:$ktor_version")
+            }
+        }
+        androidMain {
+            dependencies {
+                implementation "io.ktor:ktor-client-android:$ktor_version"
+                implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.3.2"
+                implementation("io.ktor:ktor-client-serialization-jvm:$ktor_version")
+            }
+        }
+        jsMain {
+            dependencies {
+                implementation "io.ktor:ktor-client-js:$ktor_version"
+                implementation("io.ktor:ktor-client-serialization-js:$ktor_version")
+            }
+            compileKotlinJs {
+                kotlinOptions {
+                    languageVersion = "1.3"
+                    sourceMap = true
+                    metaInfo = true
+                    moduleKind = "umd"
+                }
+            }
+        }
+    }
+}
+
+task copyFramework {
+    def buildType = project.findProperty("kotlin.build.type") ?: "DEBUG"
+    dependsOn "link${buildType.toLowerCase().capitalize()}FrameworkIos"
+
+    doLast {
+        def srcFile = kotlin.targets.ios.binaries.getFramework(buildType).outputFile
+        def targetDir = getProperty("configuration.build.dir")
+        copy {
+            from srcFile.parent
+            into targetDir
+            include 'common.framework/**'
+            include 'common.framework.dSYM'
+        }
+    }
+}
+
+task iosTest {
+    def device = project.findProperty("iosDevice")?.toString() ?: "iPhone 8"
+    dependsOn 'linkDebugTestIos'
+    group = JavaBasePlugin.VERIFICATION_GROUP
+    description = "Runs tests for target 'ios' on an iOS simulator"
+
+    doLast {
+        def binary = kotlin.targets.ios.binaries.getTest('DEBUG').outputFile
+        exec {
+            commandLine 'xcrun', 'simctl', 'spawn', device, binary.absolutePath
+        }
+    }
+}

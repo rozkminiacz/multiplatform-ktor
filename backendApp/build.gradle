@@ -1,0 +1,49 @@
+buildscript {
+    ext.ktor_version = '1.2.4'
+    ext.kotlin_version = "1.3.50"
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath 'com.github.jengelman.gradle.plugins:shadow:5.1.0'
+    }
+}
+apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'kotlin'
+apply plugin: 'application'
+
+mainClassName = "io.ktor.server.netty.DevelopmentEngine"
+
+
+
+group 'tech.michalik'
+version '1.0-SNAPSHOT'
+
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    compile "io.ktor:ktor-server-netty:$ktor_version"
+
+    compile "io.ktor:ktor-locations:$ktor_version"
+    implementation "io.ktor:ktor-gson:$ktor_version"
+    implementation "io.ktor:ktor-websockets:$ktor_version"
+
+    compile group: "org.slf4j", name: "slf4j-simple", version: "1.7.25"
+
+
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+}
+
+compileKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
+compileTestKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
